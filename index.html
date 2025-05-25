@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agenda PRO</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 10px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    input[type="text"], input[type="date"] {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    .status-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    .status {
+      flex: 1;
+      padding: 10px;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    button[type="submit"] {
+      padding: 10px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .date-filter {
+      margin-bottom: 20px;
+    }
+    #task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .task {
+      padding: 10px;
+      border-left: 5px solid;
+      background-color: #fafafa;
+      border-radius: 5px;
+    }
+    .task.pendiente { border-color: red; }
+    .task.en-ejecucion { border-color: orange; }
+    .task.completada { border-color: green; }
+    .export-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fff;
+      margin: 15% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      border-radius: 10px;
+    }
+    .close {
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Agenda PRO</h1>
+
+    <!-- Formulario para agregar tarea -->
+    <form id="task-form">
+      <input type="text" id="task-name" placeholder="Nombre de la tarea" required />
+      <input type="text" id="project-name" placeholder="Proyecto" required />
+      <input type="date" id="task-date" required />
+      <div class="status-buttons">
+        <button type="button" class="status" data-status="Pendiente" style="background-color: red">Pendiente</button>
+        <button type="button" class="status" data-status="En ejecución" style="background-color: orange">En ejecución</button>
+        <button type="button" class="status" data-status="Completada" style="background-color: green">Completada</button>
+      </div>
+      <input type="hidden" id="selected-status" required />
+      <button type="submit">Agregar tarea</button>
+    </form>
+
+    <!-- Filtro por fecha -->
+    <div class="date-filter">
+      <label for="filter-date">Ver tareas del día:</label>
+      <input type="date" id="filter-date" />
+    </div>
+
+    <!-- Lista de tareas -->
+    <div id="task-list"></div>
+
+    <!-- Compartir y exportar -->
+    <div class="export-buttons">
+      <button onclick="showEmailModal()"><i class="fas fa-envelope"></i> Enviar resumen por correo</button>
+      <button onclick="shareWhatsApp()"><i class="fab fa-whatsapp"></i> Compartir por WhatsApp</button>
+    </div>
+  </div>
+
+  <!-- Modal correo -->
+  <div id="email-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeEmailModal()">&times;</span>
+      <h3>Resumen diario</h3>
+      <div id="email-content"></div>
+    </div>
+  </div>
+
+  <script>
+    const taskForm = document.getElementById('task-form');
+    const taskList = document.getElementById('task-list');
+    const filterDate = document.getElementById('filter-date');
+    const statusButtons = document.querySelectorAll('.status');
+    const selectedStatus = document.getElementById('selected-status');
+
+    let selected = '';
+
+    statusButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        selected = btn.dataset.status;
+        selectedStatus.value = selected;
+      });
+    });
+
+    function saveTasks(tasks) {
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function loadTasks() {
+      return JSON.parse(localStorage.getItem('tasks')) || [];
+    }
+
+    function renderTasks(date) {
+      const tasks = loadTasks();
+      taskList.innerHTML = '';
+      tasks.filter(t => t.date === date).forEach(task => {
+        const div = document.createElement('div');
+        div.className = `task ${task.status.toLowerCase().replace(/ /g, '-')}`;
+        div.textContent = `${task.name} [${task.project}] - ${task.status}`;
+        taskList.appendChild(div);
+      });
+    }
+
+    taskForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const tasks = loadTasks();
+      tasks.push({
+        name: document.getElementById('task-name').value,
+        project: document.getElementById('project-name').value,
+        date: document.getElementById('task-date').value,
+        status: selectedStatus.value
+      });
+      saveTasks(tasks);
+      renderTasks(document.getElementById('task-date').value);
+      taskForm.reset();
+    });
+
+    filterDate.addEventListener('change', () => {
+      renderTasks(filterDate.value);
+    });
+
+    function showEmailModal() {
+      const date = filterDate.value;
+      const tasks = loadTasks().filter(t => t.date === date);
+      const content = tasks.map(t => `- ${t.name} [${t.project}] - ${t.status}`).join('<br>');
+      document.getElementById('email-content').innerHTML = content;
+      document.getElementById('email-modal').style.display = 'block';
+    }
+
+    function closeEmailModal() {
+      document.getElementById('email-modal').style.display = 'none';
+    }
+
+    function shareWhatsApp() {
+      const date = filterDate.value;
+      const tasks = loadTasks().filter(t => t.date === date);
+      const message = tasks.map(t => `- ${t.name} [${t.project}] - ${t.status}`).join('%0A');
+      const url = `https://api.whatsapp.com/send?text=Resumen%20diario%20(${date}):%0A${message}`;
+      window.open(url, '_blank');
+    }
+  </script>
+</body>
+</html>
